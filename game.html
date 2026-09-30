@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Поймай монеты</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#07111f;color:#fff;font-family:Arial,sans-serif;overflow:hidden}
+  #game{display:block;width:100vw;height:100vh;background:linear-gradient(#102a43,#07111f)}
+  #ui{position:fixed;top:12px;left:0;width:100%;display:flex;justify-content:space-between;padding:0 18px;font-size:20px;font-weight:bold;pointer-events:none}
+  #start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0008}
+  .panel{text-align:center;background:#10243a;padding:28px;border-radius:20px;box-shadow:0 10px 40px #0008}
+  button{border:0;border-radius:12px;padding:14px 28px;background:#ffd43b;color:#111;font-size:20px;font-weight:bold}
+  #hint{font-size:14px;opacity:.75;margin-top:12px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui"><span>Счёт: <b id="score">0</b></span><span>Жизни: <b id="lives">3</b></span></div>
+<div id="start">
+  <div class="panel">
+    <h1>🪙 Поймай монеты</h1>
+    <p>Двигай персонажа и собирай монеты.<br>Избегай красных метеоров!</p>
+    <button id="play">Играть</button>
+    <div id="hint">ПК: ← → или A/D · Телефон: веди пальцем</div>
+  </div>
+</div>
+<script>
+const c=document.getElementById('game'),ctx=c.getContext('2d');
+const scoreEl=document.getElementById('score'), livesEl=document.getElementById('lives');
+let W,H,player,items,score,lives,running=false,keys={};
+
+function resize(){W=c.width=innerWidth*devicePixelRatio;H=c.height=innerHeight*devicePixelRatio;ctx.setTransform(1,0,0,1,0,0);ctx.scale(devicePixelRatio,devicePixelRatio);W=innerWidth;H=innerHeight;if(player)player.y=H-80}
+addEventListener('resize',resize); resize();
+
+function reset(){
+  player={x:W/2,y:H-80,w:64,h:26,speed:8};
+  items=[];score=0;lives=3;scoreEl.textContent=0;livesEl.textContent=3;running=true;
+  document.getElementById('start').style.display='none'; last=performance.now();requestAnimationFrame(loop);
+}
+function spawn(){
+  items.push({x:25+Math.random()*(W-50),y:-25,r:Math.random()<.65?10:14,
+    type:Math.random()<.65?'coin':'meteor',speed:2.5+Math.random()*2.5});
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // stars
+  ctx.fillStyle='#fff'; for(let i=0;i<55;i++){let x=(i*83)%W,y=(i*47)%(H-80);ctx.globalAlpha=.25;ctx.fillRect(x,y,2,2)}ctx.globalAlpha=1;
+  // player
+  ctx.fillStyle='#4dabf7';ctx.beginPath();ctx.roundRect(player.x-player.w/2,player.y,player.w,player.h,10);ctx.fill();
+  ctx.fillStyle='#d0ebff';ctx.fillRect(player.x-18,player.y+5,36,4);
+  for(const o of items){
+    if(o.type==='coin'){ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff3bf';ctx.beginPath();ctx.arc(o.x-3,o.y-3,3,0,Math.PI*2);ctx.fill()}
+    else{ctx.fillStyle='#ff6b6b';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c92a2a';ctx.beginPath();ctx.arc(o.x+4,o.y-4,3,0,Math.PI*2);ctx.fill()}
+  }
+}
+function hit(o){
+  return o.x>player.x-player.w/2-o.r && o.x<player.x+player.w/2+o.r &&
+         o.y>player.y-o.r && o.y<player.y+player.h+o.r;
+}
+let last=0,spawnT=0;
+function loop(t){
+ if(!running)return;
+ const dt=Math.min((t-last)/16.67,2); last=t; spawnT+=dt;
+ if(spawnT>28){spawn();spawnT=0}
+ if(keys.ArrowLeft||keys.a)player.x-=player.speed*dt;
+ if(keys.ArrowRight||keys.d)player.x+=player.speed*dt;
+ player.x=Math.max(player.w/2,Math.min(W-player.w/2,player.x));
+ for(let i=items.length-1;i>=0;i--){
+   let o=items[i];o.y+=o.speed*dt;
+   if(hit(o)){items.splice(i,1);if(o.type==='coin'){score++;scoreEl.textContent=score}else{lives--;livesEl.textContent=lives;if(lives<=0){gameOver();return}}}
+   else if(o.y>H+40)items.splice(i,1);
+ }
+ draw();requestAnimationFrame(loop);
+}
+function gameOver(){
+ running=false;
+ document.querySelector('.panel').innerHTML=`<h1>Игра окончена</h1><p>Твой счёт: <b>${score}</b></p><button id="again">Играть снова</button>`;
+ document.getElementById('start').style.display='flex';
+ document.getElementById('again').onclick=reset;
+}
+addEventListener('keydown',e=>{keys[e.key]=true});
+addEventListener('keyup',e=>{keys[e.key]=false});
+c.addEventListener('pointermove',e=>{if(running)player.x=e.clientX});
+c.addEventListener('pointerdown',e=>{if(running)player.x=e.clientX});
+document.getElementById('play').onclick=reset;
+</script>
+</body>
+</html>
